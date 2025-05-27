@@ -57,32 +57,46 @@ format:
 # Prompts for different tasks
 prompts:
   # System prompt
-  system_prompt: |
-    You are an expert financial analyst skilled in generating questions that are meaningful for financial analysis or generating insights from the
-    company financial reports. Your task involves analyzing a webpage/pdf that includes at least one table to generate interesting reasoning questions.
+  system_prompt_one_table: |
+    You are an expert financial analyst skilled in generating questions that are meaningful for financial analysis or generating insights from scraped financial webpages/pdfs. 
+    Your task involves analyzing text of a scraped financial webpage/pdf to generate a relevant question. 
     While performing this task, you must adhere to a set of specified constraints.
 
-  q_generation: |
-    Given the text of a scraped webpage/pdf, generate 5 financial reasoning questions. Please adhere to the following constraints meticulously when formulating the questions.
-    Constraints:
-      1. The questions must be generated such that they always leads to a single numerical or boolean answer.
-      2. The questions must be strictly derived from the content present in the text.
-      3. Answering the questions should require the use of one or more values from the table(s) and/or values present in the text around the table(s).
-      4. Calculating the answer should involve multi-hop reasoning with the following arithmetic operations:
-        -Basic operations: Addition, Subtraction, Multiplication, Division, Exponential, Greater Than
-        -Table aggregation operations: Sum, Average, Minimum, Maximum
+  system_prompt_code: |
+    You are an expert financial analyst skilled in generating python code to answer financial reasoning questions.
 
-    Return **only** the raw JSON array—no markdown code fences, no backticks, no leading or trailing `json` labels:
-      [{{
-      "Question": "<Generated Question 1>".
-      }},
-      {{
-      "Question:" "<Generated Question 2>".
-      }}
-      ]
+  q_generation_one_table: |
+    Given the text of a page from a financial report, generate a financial reasoning question. Please adhere to the following constraints meticulously when formulating the question.
+    Constraints:
+    1. The question must be generated such that it always leads to a single numerical or boolean answer.
+    2. The question should preferably use concepts different than the concepts used in any question you see in the following list:
+      .
+    3. The question must be strictly derived from the content present in the text.
+    4. Answering the question should require the use of values from the table and/or values present in the text around the table.
+    5. Calculating the answer should involve multi-hop reasoning with the following arithmetic operations:
+      -Basic operations: Addition, Subtraction, Multiplication, Division, Exponential, Greater Than
+      -Table aggregation operations: Sum, Average, Minimum, Maximum
+
+    The final response should be formatted as a JSON object with only question and no other objects should be included:
+    "Question": "<Generated Question>".
 
     Text:
     {text}
+
+  code_generation_one_table: |
+      Given the text of a page from a scraped financial webpage/pdf and the financial question, write Python code to answer the question.
+      ###Question: {question}
+      ###Instructions:
+        1. First, identify entities required to answer the question. Extract the identified entities and store in python variables.
+        2. Then perform calculations with the entities and strictly store the answer to the python variable "ans".
+        3. Python code must end after the variable "ans" is defined. Comments must begin with character "#".
+      The final response should be formatted as a JSON object with the following fields and no others:
+      "Question": "<Generated Question>",
+      "Explanation": "Explanation of the steps to generate the answer",
+      "Python_code": "###Python <Python code to calculate the answer> ###End Python"
+
+      Text:
+      {text}
 
   # Summary generation prompt
   summary: |
