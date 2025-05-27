@@ -19,7 +19,11 @@ def parse_args():
     )
     parser.add_argument(
         '--question',
-        help='In code mode: question JSON file or directory.'
+        help='In code mode: question JSON file or directory. In question mode: not used.'
+    )
+    parser.add_argument(
+        '--num-questions', '-k', type=int, default=5,
+        help='Number of questions to generate in question mode.'
     )
     parser.add_argument(
         '--output-dir', required=True,
@@ -39,7 +43,7 @@ def classify_paths(args):
     else:
         raise ValueError(f"Input path not found: {args.input}")
 
-    # classify --question in code mode
+    # classify --question only in code mode
     if args.mode == 'code':
         if not args.question:
             raise ValueError("--question required in code mode")
