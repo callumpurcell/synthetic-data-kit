@@ -16,3 +16,9 @@ vllm serve Qwen/Qwen3-0.6B \
   --reasoning-parser deepseek_r1
 
 # no idea why this second one started working with the kit. 
+
+# vllm serve Qwen/Qwen3-1.7B \
+#   --port 8000 \
+#   --tensor_parallel_size 4 \
+#   --enable-reasoning \
+#   --reasoning-parser deepseek_r1
