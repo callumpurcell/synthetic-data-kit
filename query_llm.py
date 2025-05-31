@@ -1,6 +1,7 @@
 import os
 import glob
 import json
+import time
 from openai import OpenAI
 from mistralai import Mistral
 
@@ -16,6 +17,8 @@ def process_question_file(file_path, args, prompts, client):
 
     prev_questions = []  # list of {'Question': ...}
     for i in range(args.num_questions):
+        #sleep because max 1 request per second for mistral
+        time.sleep(1)
         prompt = generate_prompt(
             'question', text, q_prompt, None, args, base, previous_questions=prev_questions
         )
@@ -29,27 +32,43 @@ def process_question_file(file_path, args, prompts, client):
             #     temperature=0.7, top_p=0.95, max_tokens=4096
             # )
             resp = client.chat.complete(
-                model="mistral-small-2503",
+                model="mistral-small-2409",
                 messages=[
                     {'role': 'system', 'content': system_prompt},
                     {'role': 'user',   'content': prompt}
                 ],
                 temperature=0.7, top_p=0.95, max_tokens=4096
             )
+
             msg = resp.choices[0].message
             out = msg.content.strip() if msg and getattr(msg, 'content', None) else ''
         except Exception as e:
             print(f"Error generating question #{i+1} for {file_path}: {e}")
             continue  # skip this iteration
 
-        # parse JSON output
+        # ——— PREPROCESS: strip any ```json or ``` code fences ———
+        cleaned = out.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.splitlines()
+            # If the first line is ``` or ```json (possibly with language tag), drop it:
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            # If the last line is ``` (closing fence), drop it:
+            if lines and lines[-1].strip().startswith("```"):
+                lines = lines[:-1]
+            # Re‐join the interior lines and strip any extra whitespace:
+            cleaned = "\n".join(lines).strip()
+
+        # ——— Attempt to parse JSON from the (possibly‐unfenced) string ———
         try:
-            data = json.loads(out)
+            data = json.loads(cleaned)
             items = data if isinstance(data, list) else [data]
         except json.JSONDecodeError as err:
-            #print(f"Invalid JSON for question #{i+1}, skipping this one.")
-            print(f"Invalid JSON for question #{i+1}, skipping this one. Error: {err}")
-            print(f"Output: {out}")
+            print(
+                f"Invalid JSON for question #{i+1}, skipping this one. Error: {err}\n"
+                f"Raw (preprocessed) output:\n{cleaned}\n"
+                f"Original output:\n{out}"
+            )
             continue
 
         # append new unique questions
@@ -91,6 +110,7 @@ def process_code_file(file_path, args, prompts, client):
 
     responses = []  # collect all code outputs
     for idx, item in enumerate(q_list, start=1):
+        time.sleep(2)
         question = item['Question'] if isinstance(item, dict) else item
         filled = code_prompt.format(text=text, question=question)
         try:
@@ -103,7 +123,7 @@ def process_code_file(file_path, args, prompts, client):
             #     temperature=0, top_p=1, max_tokens=4096
             # )
             resp = client.chat.complete(
-                model="mistral-small-2503",
+                model="mistral-small-2409",
                 messages=[
                     {'role': 'system', 'content': system_prompt},
                     {'role': 'user',   'content': filled}

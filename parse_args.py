@@ -22,7 +22,7 @@ def parse_args():
         help='In code mode: question JSON file or directory. In question mode: not used.'
     )
     parser.add_argument(
-        '--num-questions', '-k', type=int, default=3,
+        '--num-questions', '-k', type=int, default=1,
         help='Number of questions to generate in question mode.'
     )
     parser.add_argument(
