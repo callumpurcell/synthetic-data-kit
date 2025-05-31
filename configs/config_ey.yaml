@@ -70,7 +70,7 @@ prompts:
     Constraints:
     1. The question must be generated such that it always leads to a single numerical or boolean answer.
     2. The question should preferably use concepts different than the concepts used in any question you see in the following list:
-      .
+      {previous_questions}
     3. The question must be strictly derived from the content present in the text.
     4. Answering the question should require the use of values from the table and/or values present in the text around the table.
     5. Calculating the answer should involve multi-hop reasoning with the following arithmetic operations:
@@ -78,7 +78,7 @@ prompts:
       -Table aggregation operations: Sum, Average, Minimum, Maximum
 
     The final response should be formatted as a JSON object with only question and no other objects should be included:
-    "Question": "<Generated Question>".
+    {{"Question": "<Generated Question>"}}
 
     Text:
     {text}

@@ -2,6 +2,7 @@ import os
 import glob
 import json
 from openai import OpenAI
+from mistralai import Mistral
 
 from parse_args import parse_args, classify_paths
 from utils import load_prompts, read_text_file, save_output, save_reasoning, get_question_for_file
@@ -19,11 +20,19 @@ def process_question_file(file_path, args, prompts, client):
             'question', text, q_prompt, None, args, base, previous_questions=prev_questions
         )
         try:
-            resp = client.chat.completions.create(
-                model='Qwen/Qwen3-0.6B',
+            # resp = client.chat.completions.create(
+            #     model='Qwen/Qwen3-0.6B',
+            #     messages=[
+            #         {'role': 'system', 'content': system_prompt},
+            #         {'role': 'user', 'content': prompt}
+            #     ],
+            #     temperature=0.7, top_p=0.95, max_tokens=4096
+            # )
+            resp = client.chat.complete(
+                model="mistral-small-2503",
                 messages=[
                     {'role': 'system', 'content': system_prompt},
-                    {'role': 'user', 'content': prompt}
+                    {'role': 'user',   'content': prompt}
                 ],
                 temperature=0.7, top_p=0.95, max_tokens=4096
             )
@@ -37,8 +46,10 @@ def process_question_file(file_path, args, prompts, client):
         try:
             data = json.loads(out)
             items = data if isinstance(data, list) else [data]
-        except json.JSONDecodeError:
-            print(f"Invalid JSON for question #{i+1}, skipping this one.")
+        except json.JSONDecodeError as err:
+            #print(f"Invalid JSON for question #{i+1}, skipping this one.")
+            print(f"Invalid JSON for question #{i+1}, skipping this one. Error: {err}")
+            print(f"Output: {out}")
             continue
 
         # append new unique questions
@@ -83,13 +94,21 @@ def process_code_file(file_path, args, prompts, client):
         question = item['Question'] if isinstance(item, dict) else item
         filled = code_prompt.format(text=text, question=question)
         try:
-            resp = client.chat.completions.create(
-                model='Qwen/Qwen3-0.6B',
+            # resp = client.chat.completions.create(
+            #     model='Qwen/Qwen3-0.6B',
+            #     messages=[
+            #         {'role': 'system', 'content': system_prompt},
+            #         {'role': 'user',   'content': filled}
+            #     ],
+            #     temperature=0, top_p=1, max_tokens=4096
+            # )
+            resp = client.chat.complete(
+                model="mistral-small-2503",
                 messages=[
                     {'role': 'system', 'content': system_prompt},
                     {'role': 'user',   'content': filled}
                 ],
-                temperature=0.7, top_p=0.95, max_tokens=4096
+                temperature=0, top_p=1, max_tokens=4096
             )
             msg = resp.choices[0].message
             raw_output = msg.content.strip() if msg and getattr(msg, 'content', None) else None
@@ -152,7 +171,12 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     prompts = load_prompts(args.config)
-    client  = OpenAI(api_key='EMPTY', base_url='http://localhost:8000/v1')
+    #client  = OpenAI(api_key='EMPTY', base_url='http://localhost:8000/v1')
+    #next three lines added for Mistral
+    api_key = os.environ["MISTRAL_API_KEY"]
+    model = "mistral-small-2503"
+    client = Mistral(api_key=api_key)
+
 
     files = [args.input_file] if args.input_file else glob.glob(os.path.join(args.input_dir, '*.txt'))
     for fp in files:
