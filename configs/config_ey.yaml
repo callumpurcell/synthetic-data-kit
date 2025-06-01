@@ -56,29 +56,59 @@ format:
 
 # Prompts for different tasks
 prompts:
-  # System prompt
+  # System prompt, HARSHA
+  # system_prompt_one_table: |
+  #   You are an expert financial analyst skilled in generating questions that are meaningful for financial analysis or generating insights from scraped financial webpages/pdfs. 
+  #   Your task involves analyzing text of a scraped financial webpage/pdf to generate a relevant question. 
+  #   While performing this task, you must adhere to a set of specified constraints.
+  #ALL AT ONCE
   system_prompt_one_table: |
     You are an expert financial analyst skilled in generating questions that are meaningful for financial analysis or generating insights from scraped financial webpages/pdfs. 
-    Your task involves analyzing text of a scraped financial webpage/pdf to generate a relevant question. 
+    Your task involves analyzing text of a scraped financial webpage/pdf to generate relevant questions. 
     While performing this task, you must adhere to a set of specified constraints.
 
   system_prompt_code: |
     You are an expert financial analyst skilled in generating python code to answer financial reasoning questions.
 
+  #HARSHA
+  # q_generation_one_table: |
+  #   Given the text of a page from a financial report, generate a financial reasoning question. Please adhere to the following constraints meticulously when formulating the question.
+  #   Constraints:
+  #   1. The question must be generated such that it always leads to a single numerical or boolean answer.
+  #   2. The question should preferably use concepts different than the concepts used in any question you see in the following list:
+  #     {previous_questions}
+  #   3. The question must be strictly derived from the content present in the text.
+  #   4. Answering the question should require the use of values from the table(s) and/or values present in the text around the table(s).
+  #   5. Calculating the answer should involve multi-hop reasoning with the following arithmetic operations:
+  #     -Basic operations: Addition, Subtraction, Multiplication, Division, Exponential, Greater Than
+  #     -Table aggregation operations: Sum, Average, Minimum, Maximum
+
+  #   The final response should be formatted as a JSON object with only question and no other objects should be included:
+  #   {{"Question": "<Generated Question>"}}
+
+  #   Text:
+  #   {text}
+  #ALL AT ONCE
   q_generation_one_table: |
-    Given the text of a page from a financial report, generate a financial reasoning question. Please adhere to the following constraints meticulously when formulating the question.
+    Given the text of a page from a financial report, generate 5 distinct financial reasoning questions. Please adhere to the following constraints meticulously when formulating the questions.
     Constraints:
-    1. The question must be generated such that it always leads to a single numerical or boolean answer.
-    2. The question should preferably use concepts different than the concepts used in any question you see in the following list:
-      {previous_questions}
-    3. The question must be strictly derived from the content present in the text.
-    4. Answering the question should require the use of values from the table and/or values present in the text around the table.
+    1. The questions must be generated such that they always leads to a single numerical or boolean answer.
+    2. Each question should use concepts different than the concepts used in any of the other questions.
+    3. The questions must be strictly derived from the content present in the text.
+    4. Answering the questions should require the use of values from the table(s) and/or values present in the text around the table(s).
     5. Calculating the answer should involve multi-hop reasoning with the following arithmetic operations:
       -Basic operations: Addition, Subtraction, Multiplication, Division, Exponential, Greater Than
       -Table aggregation operations: Sum, Average, Minimum, Maximum
 
-    The final response should be formatted as a JSON object with only question and no other objects should be included:
-    {{"Question": "<Generated Question>"}}
+    The final response should be formatted as a JSON format with only the questions and no other objects should be included:
+    [
+      {{
+        "Question": "Question 1?"
+      }},
+      {{
+        "Question": "Question 2?"
+      }}
+    ]
 
     Text:
     {text}

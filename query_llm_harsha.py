@@ -2,12 +2,34 @@ import os
 import glob
 import json
 import time
-from openai import OpenAI
 from mistralai import Mistral
+from mistralai.models.sdkerror import SDKError
 
 from parse_args import parse_args, classify_paths
 from utils import load_prompts, read_text_file, save_output, save_reasoning, get_question_for_file
 from prompt_builder import generate_prompt
+
+
+def call_with_rate_limit_retries(func, *, max_retries=3, backoff=2.0):
+    """
+    Helper: call `func()` once. If it raises an SDKError whose text contains "rate limit",
+    sleep for `backoff` seconds and retry, up to `max_retries` times total.
+    """
+    attempt = 0
+    while True:
+        try:
+            return func()
+        except SDKError as e:
+            text = str(e).lower()
+            # detect rate-limit error by presence of "rate limit" or HTTP 429 in message
+            if ("rate limit" in text or "429" in text) and attempt < max_retries:
+                attempt += 1
+                wait = backoff * attempt
+                print(f"→ Rate limit hit. Backing off for {wait:.1f}s (attempt {attempt}/{max_retries})…")
+                time.sleep(wait)
+                continue
+            else:
+                raise  # re-raise if not a rate limit or if we've exhausted retries
 
 
 def process_question_file(file_path, args, prompts, client):
@@ -17,29 +39,26 @@ def process_question_file(file_path, args, prompts, client):
 
     prev_questions = []  # list of {'Question': ...}
     for i in range(args.num_questions):
-        #sleep because max 1 request per second for mistral
-        time.sleep(1)
+        # Sleep for slightly >1s to avoid drifting into a 429
+        time.sleep(1.2)
+
         prompt = generate_prompt(
             'question', text, q_prompt, None, args, base, previous_questions=prev_questions
         )
         try:
-            # resp = client.chat.completions.create(
-            #     model='Qwen/Qwen3-0.6B',
-            #     messages=[
-            #         {'role': 'system', 'content': system_prompt},
-            #         {'role': 'user', 'content': prompt}
-            #     ],
-            #     temperature=0.7, top_p=0.95, max_tokens=4096
-            # )
-            resp = client.chat.complete(
-                model="mistral-small-2409",
-                messages=[
-                    {'role': 'system', 'content': system_prompt},
-                    {'role': 'user',   'content': prompt}
-                ],
-                temperature=0.7, top_p=0.95, max_tokens=4096
+            # Wrap the actual API call so we can catch 429s and retry
+            resp = call_with_rate_limit_retries(
+                lambda: client.chat.complete(
+                    model="mistral-small-2409",
+                    messages=[
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user',   'content': prompt}
+                    ],
+                    temperature=0.7,
+                    top_p=0.95,
+                    max_tokens=4096
+                )
             )
-
             msg = resp.choices[0].message
             out = msg.content.strip() if msg and getattr(msg, 'content', None) else ''
         except Exception as e:
@@ -50,16 +69,13 @@ def process_question_file(file_path, args, prompts, client):
         cleaned = out.strip()
         if cleaned.startswith("```"):
             lines = cleaned.splitlines()
-            # If the first line is ``` or ```json (possibly with language tag), drop it:
             if lines and lines[0].startswith("```"):
                 lines = lines[1:]
-            # If the last line is ``` (closing fence), drop it:
             if lines and lines[-1].strip().startswith("```"):
                 lines = lines[:-1]
-            # Re‐join the interior lines and strip any extra whitespace:
             cleaned = "\n".join(lines).strip()
 
-        # ——— Attempt to parse JSON from the (possibly‐unfenced) string ———
+        # ——— Attempt to parse JSON from the (possibly-unfenced) string ———
         try:
             data = json.loads(cleaned)
             items = data if isinstance(data, list) else [data]
@@ -110,25 +126,24 @@ def process_code_file(file_path, args, prompts, client):
 
     responses = []  # collect all code outputs
     for idx, item in enumerate(q_list, start=1):
-        time.sleep(2)
+        # Sleep a bit over 2 s between code-generation calls
+        time.sleep(2.2)
+
         question = item['Question'] if isinstance(item, dict) else item
         filled = code_prompt.format(text=text, question=question)
+
         try:
-            # resp = client.chat.completions.create(
-            #     model='Qwen/Qwen3-0.6B',
-            #     messages=[
-            #         {'role': 'system', 'content': system_prompt},
-            #         {'role': 'user',   'content': filled}
-            #     ],
-            #     temperature=0, top_p=1, max_tokens=4096
-            # )
-            resp = client.chat.complete(
-                model="mistral-small-2409",
-                messages=[
-                    {'role': 'system', 'content': system_prompt},
-                    {'role': 'user',   'content': filled}
-                ],
-                temperature=0, top_p=1, max_tokens=4096
+            resp = call_with_rate_limit_retries(
+                lambda: client.chat.complete(
+                    model="mistral-small-2409",
+                    messages=[
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user',   'content': filled}
+                    ],
+                    temperature=0,
+                    top_p=1,
+                    max_tokens=4096
+                )
             )
             msg = resp.choices[0].message
             raw_output = msg.content.strip() if msg and getattr(msg, 'content', None) else None
@@ -141,28 +156,30 @@ def process_code_file(file_path, args, prompts, client):
             print(f"No output for question #{idx}, skipping.")
             continue
 
-                # parse LLM response JSON into separate fields
         # strip markdown fences if present
         clean_output = raw_output
         if clean_output.startswith("```"):
             fence_lines = clean_output.splitlines()
-            # drop opening fence
             fence_lines = fence_lines[1:]
-            # drop closing fence if present
             if fence_lines and fence_lines[-1].startswith("```"):
                 fence_lines = fence_lines[:-1]
             clean_output = "".join(fence_lines)
+
         # remove optional leading language tag (e.g., 'json')
         stripped = clean_output.lstrip()
         if stripped.lower().startswith('json'):
-            # remove 'json' label
             stripped = stripped[len('json'):].lstrip(':').lstrip()
         clean_output = stripped
 
         try:
             parsed = json.loads(clean_output)
             explanation = parsed.get('Explanation') or parsed.get('explanation')
-            code_block   = parsed.get('Python_code') or parsed.get('Python code') or parsed.get('code') or parsed.get('Code')
+            code_block = (
+                parsed.get('Python_code')
+                or parsed.get('Python code')
+                or parsed.get('code')
+                or parsed.get('Code')
+            )
             entry = {'Question': question}
             if explanation is not None:
                 entry['Explanation'] = explanation
@@ -191,12 +208,10 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     prompts = load_prompts(args.config)
-    #client  = OpenAI(api_key='EMPTY', base_url='http://localhost:8000/v1')
-    #next three lines added for Mistral
-    api_key = os.environ["MISTRAL_API_KEY"]
-    model = "mistral-small-2503"
+    api_key = os.environ.get("MISTRAL_API_KEY")
+    if not api_key:
+        raise EnvironmentError("Please set the MISTRAL_API_KEY environment variable.")
     client = Mistral(api_key=api_key)
-
 
     files = [args.input_file] if args.input_file else glob.glob(os.path.join(args.input_dir, '*.txt'))
     for fp in files:
@@ -204,6 +219,7 @@ def main():
             process_question_file(fp, args, prompts, client)
         else:
             process_code_file(fp, args, prompts, client)
+
 
 if __name__ == '__main__':
     main()
