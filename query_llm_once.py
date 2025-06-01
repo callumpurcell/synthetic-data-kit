@@ -95,6 +95,12 @@ def process_question_file(file_path, args, prompts, client):
             f"Raw (preprocessed) output:\n{cleaned}\n"
             f"Original:\n{raw}"
         )
+        # Save an empty list instead of skipping entirely
+        empty_out = []
+        out_fn = f"{base}_questions.json"
+        out_path = os.path.join(args.output_dir, out_fn)
+        save_output(json.dumps(empty_out), out_path)
+        print(f"Saved 0 questions to {out_path} (invalid JSON)")
         return
 
     # Collect up to args.num_questions unique questions
@@ -125,8 +131,15 @@ def process_code_file(file_path, args, prompts, client):
     base = os.path.splitext(os.path.basename(file_path))[0]
     text = read_text_file(file_path)
 
-    # load list of questions
+    # build the expected question‐file path
     q_path = get_question_for_file(base, args)
+
+    # If the file doesn’t exist, skip immediately
+    if not os.path.isfile(q_path):
+        print(f"Skipping code gen for {file_path}: question file not found at {q_path}")
+        return
+
+    # load list of questions
     try:
         with open(q_path, 'r', encoding='utf-8') as f:
             q_list = json.load(f)
@@ -139,7 +152,7 @@ def process_code_file(file_path, args, prompts, client):
     responses = []  # collect all code outputs
     for idx, item in enumerate(q_list, start=1):
         # Sleep a bit over 2s between requests
-        time.sleep(2.2)
+        time.sleep(1.2)
 
         question = item['Question'] if isinstance(item, dict) else item
         filled = code_prompt.format(text=text, question=question)
