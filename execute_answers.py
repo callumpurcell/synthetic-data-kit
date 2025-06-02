@@ -2,6 +2,7 @@ import os
 import glob
 import json
 import traceback
+import argparse
 
 def safe_execute(code_str, global_ns=None):
     """
@@ -19,8 +20,8 @@ def safe_execute(code_str, global_ns=None):
         raise RuntimeError(f"Execution failed: {tb}")
 
 
-def process_code_output(file_path):
-    base = os.path.splitext(os.path.basename(file_path))[0]
+def process_code_output(file_path, output_dir=None):
+    base_name = os.path.splitext(os.path.basename(file_path))[0]
     with open(file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
@@ -31,10 +32,10 @@ def process_code_output(file_path):
             print(f"Skipping invalid entry at index {idx}: expected dict, got {type(entry).__name__}")
             continue
 
-        question = entry.get('Question')
+        question    = entry.get('Question')
         explanation = entry.get('Explanation')
         code_snippet = entry.get('Python_code')
-        reasoning = entry.get('Reasoning')
+        reasoning   = entry.get('Reasoning')
 
         answer = None
         error = None
@@ -53,19 +54,51 @@ def process_code_output(file_path):
             'Error': error
         })
 
+    # Determine output path
+    if output_dir:
+        # ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+        out_path = os.path.join(output_dir, f"{base_name}_with_answers.json")
+    else:
+        # default: same directory as input file
+        out_path = os.path.join(os.path.dirname(file_path), f"{base_name}_with_answers.json")
+
     # Write results to disk
-    out_fn = f"{base}_with_answers.json"
-    out_path = os.path.join(os.path.dirname(file_path), out_fn)
     with open(out_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
     print(f"Saved executed results to {out_path}")
 
 
 def main():
-    # assume code-mode JSON files end with '_code.json'
-    cwd = os.getcwd()
-    for file_path in glob.glob(os.path.join(cwd, '*_code.json')):
-        process_code_output(file_path)
+    parser = argparse.ArgumentParser(
+        description="Execute Python snippets inside *_code.json files and write results to JSON."
+    )
+    parser.add_argument(
+        "--input-dir",
+        "-i",
+        default=os.getcwd(),
+        help="Directory to look for *_code.json files (default: current working directory)"
+    )
+    parser.add_argument(
+        "--output-dir",
+        "-o",
+        default=None,
+        help="Directory to save *_with_answers.json files (default: same folder as each input file)"
+    )
+    args = parser.parse_args()
 
-if __name__ == '__main__':
+    input_dir = os.path.abspath(args.input_dir)
+    output_dir = os.path.abspath(args.output_dir) if args.output_dir else None
+
+    pattern = os.path.join(input_dir, "*_code.json")
+    matches = glob.glob(pattern)
+    if not matches:
+        print(f"No files matching '*_code.json' found in '{input_dir}'.")
+        return
+
+    for file_path in matches:
+        process_code_output(file_path, output_dir=output_dir)
+
+
+if __name__ == "__main__":
     main()
