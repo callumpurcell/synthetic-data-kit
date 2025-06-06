@@ -62,7 +62,7 @@ def process_question_file(file_path, args, prompts, client):
     try:
         resp = call_with_rate_limit_retries(
             lambda: client.chat.complete(
-                model="mistral-small-2409",
+                model="mistral-large-2411",
                 messages=messages,
                 temperature=0.7,
                 top_p=0.95,
@@ -160,7 +160,7 @@ def process_code_file(file_path, args, prompts, client):
         try:
             resp = call_with_rate_limit_retries(
                 lambda: client.chat.complete(
-                    model="mistral-small-2409",
+                    model="mistral-large-2411",
                     messages=[
                         {'role': 'system', 'content': system_prompt},
                         {'role': 'user',   'content': filled}
