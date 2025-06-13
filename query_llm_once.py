@@ -10,7 +10,7 @@ from utils import load_prompts, read_text_file, save_output, save_reasoning, get
 from prompt_builder import generate_prompt
 
 
-def call_with_rate_limit_retries(func, *, max_retries=3, backoff=2.0):
+def call_with_rate_limit_retries(func, *, max_retries=5, backoff=2.0):
     """
     Helper: call `func()` once. If it raises an SDKError whose text contains "rate limit"
     (HTTP 429), sleep for `backoff`×attempt seconds and retry, up to `max_retries` times.
@@ -237,7 +237,12 @@ def main():
         raise EnvironmentError("Please set the MISTRAL_API_KEY environment variable.")
     client = Mistral(api_key=api_key)
 
-    files = [args.input_file] if args.input_file else glob.glob(os.path.join(args.input_dir, '*.txt'))
+    if args.input_file:
+        files = [args.input_file]
+    else:
+        files = sorted(glob.glob(os.path.join(args.input_dir, '*.txt')))
+    resume_from = 1164 + 264 + 50
+    files = files[resume_from:]
     for fp in files:
         if args.mode == 'question':
             process_question_file(fp, args, prompts, client)

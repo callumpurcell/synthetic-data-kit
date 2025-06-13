@@ -20,7 +20,7 @@ def process_one_json(json_path, txt_dir):
     [ [txt_content, question, answer, explanation, reasoning, error], ... ].
     """
     base_filename = os.path.basename(json_path)                  # e.g. "first_012_code_with_answers.json"
-    prefix = base_filename.replace("_code_with_answers.json", "")  # e.g. "first_012"
+    prefix = base_filename.replace("_code.json", "")  # e.g. "first_012"
     txt_filename = prefix + ".txt"                                # e.g. "first_012.txt"
     txt_path = os.path.join(txt_dir, txt_filename)
 
@@ -43,7 +43,7 @@ def process_one_json(json_path, txt_dir):
         question    = entry.get("Question", "") or ""
         answer      = entry.get("Answer", "")
         code = entry.get("Python_code", "") or ""
-        explanation = entry.get("Explanation", "") or ""
+        explanation = entry.get("Response", "") or ""
         reasoning   = entry.get("Reasoning", "") or ""
         error       = entry.get("Error", "") or ""
 
@@ -88,7 +88,7 @@ def main():
     out_csv = os.path.abspath(args.output_csv)
 
     # 1) Find all matching JSON files under json_dir
-    pattern = os.path.join(json_dir, "first_*_code_with_answers.json")
+    pattern = os.path.join(json_dir, "first_*_code.json")
     all_json = sorted(glob.glob(pattern))
 
     if not all_json:

@@ -66,9 +66,12 @@ prompts:
     You are an expert financial analyst skilled in generating questions that are meaningful for financial analysis or generating insights from scraped financial webpages/pdfs. 
     Your task involves analyzing text of a scraped financial webpage/pdf to generate relevant questions. 
     While performing this task, you must adhere to a set of specified constraints.
-
+# old code prompt
+  # system_prompt_code: |
+  #   You are an expert financial analyst skilled in generating python code to answer financial reasoning questions.
+# prompt v2
   system_prompt_code: |
-    You are an expert financial analyst skilled in generating python code to answer financial reasoning questions.
+    You are an expert financial analyst skilled in answering financial reasoning questions.
 
   #HARSHA
   # q_generation_one_table: |
@@ -112,22 +115,34 @@ prompts:
 
     Text:
     {text}
+  #OLD CODE GENERATION
+  # code_generation_one_table: |
+  #     Given the text of a page from a scraped financial webpage/pdf and the financial question, write Python code to answer the question.
+  #     ###Question: {question}
+  #     ###Instructions:
+  #       1. First, identify entities required to answer the question. Extract the identified entities and store in python variables.
+  #       2. Then perform calculations with the entities and strictly store the answer to the python variable "ans".
+  #       3. Python code must end after the variable "ans" is defined. Comments must begin with character "#".
+  #     The final response should be formatted as a JSON object with the following fields and no others:
+  #     "Question": "<Generated Question>",
+  #     "Explanation": "Explanation of the steps to generate the answer",
+  #     "Python_code": "###Python <Python code to calculate the answer> ###End Python"
 
+  #     Text:
+  #     {text}
+  # trace generation v2
   code_generation_one_table: |
-      Given the text of a page from a scraped financial webpage/pdf and the financial question, write Python code to answer the question.
-      ###Question: {question}
-      ###Instructions:
-        1. First, identify entities required to answer the question. Extract the identified entities and store in python variables.
-        2. Then perform calculations with the entities and strictly store the answer to the python variable "ans".
-        3. Python code must end after the variable "ans" is defined. Comments must begin with character "#".
-      The final response should be formatted as a JSON object with the following fields and no others:
-      "Question": "<Generated Question>",
-      "Explanation": "Explanation of the steps to generate the answer",
-      "Python_code": "###Python <Python code to calculate the answer> ###End Python"
+    Given a question and the corresponding context, generate a step-by-step reasoning trace. The reasoning trace must lead to the answer which is to be given separately. The answer is always boolean or numeric.
+    The reasoning trace must be clear, logically sound, grounded in the context and result in a definitive answer.
 
-      Text:
-      {text}
+    ### Context:
+    {text}
 
+    ### Question:
+    {question}
+
+    ### Reasoning:
+  
   # Summary generation prompt
   summary: |
     Summarize this document in 3-5 sentences, focusing on the main topic and key concepts.
