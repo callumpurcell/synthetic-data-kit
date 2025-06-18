@@ -1,162 +1,113 @@
-# Master configuration file for Synthetic Data Kit
 
-# Global paths configuration
-paths:
-  # Input data locations
-  input:
-    pdf: "data/pdf"
-    html: "data/html"
-    youtube: "data/youtube"
-    docx: "data/docx"
-    ppt: "data/ppt"
-    txt: "data/txt"
-  
-  # Output locations
-  output:
-    parsed: "data/output"      # Where parsed text files are saved
-    generated: "data/generated" # Where generated content is saved
-    cleaned: "data/cleaned"     # Where cleaned content is saved
-    final: "data/final"         # Where final formatted content is saved
 
-# VLLM server configuration
-vllm:
-  api_base: "http://localhost:8000/v1" # Base URL for VLLM API
-  port: 8000                           # Port for VLLM server
-  model: "meta-llama/Llama-3.3-70B-Instruct" # Default model to use
-  max_retries: 3                       # Number of retries for API calls
-  retry_delay: 1.0                     # Initial delay between retries (seconds)
-
-# Ingest configuration
-ingest:
-  default_format: "txt"  # Default output format for parsed files
-  youtube_captions: "auto"  # Options: "auto", "manual" - caption preference
-
-# LLM generation parameters
-generation:
-  temperature: 0.7   # Higher = more creative, lower = more deterministic
-  top_p: 0.95        # Nucleus sampling parameter
-  chunk_size: 4000   # Size of text chunks for processing
-  overlap: 200       # Overlap between chunks to maintain context
-  max_tokens: 4096   # Maximum tokens in LLM responses
-  num_pairs: 25      # Default number of QA pairs to generate
-  batch_size: 32     # Number of requests to batch together (for create)
-
-# Content curation parameters
-curate:
-  threshold: 7.0     # Default quality threshold (1-10)
-  batch_size: 32     # Number of items per batch for rating
-  inference_batch: 32 # Number of batches to process at once with VLLM
-  temperature: 0.1   # Temperature for rating (lower = more consistent)
-
-# Format conversion parameters
-format:
-  default: "jsonl"   # Default output format
-  include_metadata: true  # Include metadata in output files
-  pretty_json: true  # Use indentation in JSON output
-
-# Prompts for different tasks
 prompts:
-  # Summary generation prompt
-  summary: |
-    Summarize this document in 3-5 sentences, focusing on the main topic and key concepts.
-  
-  # QA pair generation prompt
-  qa_generation: |
-    Create {num_pairs} question-answer pairs from this text for LLM training.
-    
-    Rules:
-    1. Questions must be about important facts in the text
-    2. Answers must be directly supported by the text
-    3. Return JSON format only:
-    
+  system_prompt_question: |
+    You are an expert financial analyst skilled in generating questions that are meaningful for financial analysis or generating insights from scraped financial webpages/pdfs. 
+    Your task involves analyzing text of a scraped financial webpage/pdf to generate relevant questions. 
+    While performing this task, you must adhere to a set of specified constraints.
+  #SINGLE TABLE SINGLE QUESTION
+  q_generation_1T1Q: |
+    Given an extract from a financial webpage/pdf, generate a financial reasoning question. Please adhere to the following constraints meticulously when formulating the question.
+    Constraints:
+    1. The question must be generated such that it always leads to a single numerical or boolean answer.
+    2. The question must be strictly derived from the content present in the extract.
+    3. Answering the question should require the use of values from the table and/or values present in the text around the table.
+    4. Calculating the answer should involve multi-hop reasoning with the following arithmetic operations:
+      -Basic operations: Addition, Subtraction, Multiplication, Division, Exponential, Greater Than
+      -Table aggregation operations: Sum, Average, Minimum, Maximum
+
+    The final response should be formatted as a JSON format with only the question and no other objects should be included:
     [
       {{
-        "question": "Question 1?",
-        "answer": "Answer 1."
-      }},
-      {{
-        "question": "Question 2?",
-        "answer": "Answer 2."
+        "Question": "Question 1?"
       }}
     ]
-    
-    Text:
+
+    Extract:
     {text}
-  
-  # QA pair rating prompt
-  qa_rating: |
-    Rate each question-answer pair on a scale from 1-10, based on:
-    - Accuracy (0-3): factual correctness
-    - Relevance (0-2): relevance to content
-    - Clarity (0-2): clear language
-    - Usefulness (0-3): value for model learning
-    
-    YOU MUST RETURN A VALID JSON OBJECT OR ARRAY WITH THIS EXACT SCHEMA:
-    {{
-      "question": "Exact question text",
-      "answer": "Exact answer text",
-      "rating": 8
-    }}
-    
-    OR FOR MULTIPLE PAIRS:
-    [
-      {{"question": "Q1", "answer": "A1", "rating": 8}},
-      {{"question": "Q2", "answer": "A2", "rating": 9}}
-    ]
-    
-    *** YOUR RESPONSE MUST BE VALID JSON AND NOTHING ELSE - NO EXPLANATION, NO MARKDOWN ***
-    
-    QA pairs to rate:
-    {pairs}
-    
-  # Chain of Thought generation prompt
-  cot_generation: |
-    Create {num_examples} complex reasoning examples from this text that demonstrate chain-of-thought thinking.
-    
-    Each example should have:
-    1. A challenging question that requires step-by-step reasoning
-    2. Detailed reasoning steps that break down the problem
-    3. A concise final answer
-    
-    Return JSON format only:
-    
+  # SINGLE TABLE 5 QUESTIONS
+  q_generation_1T5Q: |
+    Given an extract from a financial webpage/pdf, generate 5 financial reasoning questions. Please adhere to the following constraints meticulously when formulating the questions.
+    Constraints:
+    1. The questions must be generated such that they always lead to a single numerical or boolean answer.
+    2. Each question should use concepts different than the concepts used in any of the other questions.
+    3. The questions must be strictly derived from the content present in the extract.
+    4. Answering the questions should require the use of values from the table and/or values present in the text around the table.
+    5. Calculating the answer should involve multi-hop reasoning with the following arithmetic operations:
+      -Basic operations: Addition, Subtraction, Multiplication, Division, Exponential, Greater Than
+      -Table aggregation operations: Sum, Average, Minimum, Maximum
+
+    The final response should be formatted as a JSON format with only the questions and no other objects should be included:
     [
       {{
-        "question": "Complex question about the text?",
-        "reasoning": "Step 1: First, I need to consider...\nStep 2: Then, I analyze...\nStep 3: Finally, I can conclude...",
-        "answer": "Final answer based on the reasoning."
+        "Question": "Question 1?"
       }},
       {{
-        "question": "Another complex question?",
-        "reasoning": "Step 1: First, I'll analyze...\nStep 2: Next, I need to determine...\nStep 3: Based on this analysis...",
-        "answer": "Final answer drawn from the reasoning."
+        "Question": "Question 2?"
       }}
     ]
-    
-    Text:
+
+    Extract:
     {text}
   
-  # Chain of Thought enhancement prompt
-  cot_enhancement: |
-    You are an expert reasoning assistant. Your task is to enhance the given conversations by adding chain-of-thought reasoning.
-    
-    For each conversation, add detailed step-by-step reasoning to the assistant's responses while preserving the original answer.
-    
-    {include_simple_steps} = Whether to add reasoning to simple responses too. If false, only add reasoning to complex responses.
-    
-    Return the enhanced conversations as a JSON array matching this format:
+  #MULTIPLE TABLES ONE QUESTION:
+  q_generation_5T1Q: |
+    Given an extract from a financial webpage/pdf, generate a financial reasoning question. Please adhere to the following constraints meticulously when formulating the question.
+    Constraints:
+    1. The question must be generated such that it always leads to a single numerical or boolean answer.
+    2. The question must be strictly derived from the content present in the extract.
+    3. Answering the question should require the use of values from at least two distinct tables in the extract; the question may also rely on values that appear in the text surrounding those tables. 
+    4. Calculating the answer should involve multi-hop reasoning with the following arithmetic operations:
+      -Basic operations: Addition, Subtraction, Multiplication, Division, Exponential, Greater Than
+      -Table aggregation operations: Sum, Average, Minimum, Maximum
+
+    The final response should be formatted as a JSON format with only the question and no other objects should be included:
     [
-      [
-        {{"role": "system", "content": "System message"}},
-        {{"role": "user", "content": "User question"}},
-        {{"role": "assistant", "content": "Let me think through this step by step:\n\n1. First, I need to consider...\n2. Then...\n\nTherefore, [original answer]"}}
-      ],
-      [
-        {{"role": "system", "content": "System message"}},
-        {{"role": "user", "content": "Another user question"}},
-        {{"role": "assistant", "content": "Let me work through this:\n\n1. I'll start by...\n2. Next...\n\nIn conclusion, [original answer]"}}
-      ]
+      {{
+        "Question": "Question 1?"
+      }}
     ]
-    
-    Original conversations:
-    {conversations}
+
+    Extract:
+    {text}
+
+  #MULTIPLE TABLES 5 QUESTIONS:
+  q_generation_5T5Q: |
+    Given an extract from a financial webpage/pdf, generate 5 financial reasoning questions. Please adhere to the following constraints meticulously when formulating the questions.
+    Constraints:
+    1. The questions must be generated such that they always lead to a single numerical or boolean answer.
+    2. Each question should use concepts different than the concepts used in any of the other questions.
+    3. The questions must be strictly derived from the content present in the extract.
+    4. Answering the questions should require the use of values from at least two distinct tables in the extract; the questions may also rely on values that appear in the text surrounding those tables. 
+    5. Calculating the answer should involve multi-hop reasoning with the following arithmetic operations:
+      -Basic operations: Addition, Subtraction, Multiplication, Division, Exponential, Greater Than
+      -Table aggregation operations: Sum, Average, Minimum, Maximum
+
+    The final response should be formatted as a JSON format with only the questions and no other objects should be included:
+    [
+      {{
+        "Question": "Question 1?"
+      }},
+      {{
+        "Question": "Question 2?"
+      }}
+    ]
+
+    Extract:
+    {text}
+
+
+  system_prompt_reasoning: |
+    You are an expert financial analyst skilled in answering financial reasoning questions.
+
+  reasoning_generation: |
+    Given a question and the corresponding context, generate a step-by-step reasoning trace. The reasoning trace must lead to the answer which is to be given separately. The answer is always boolean or numeric.
+    The reasoning trace must be clear, logically sound, grounded in the context and result in a definitive answer.
+
+    ### Context:
+    {text}
+
+    ### Question:
+    {question}
+
+    ### Reasoning:  
