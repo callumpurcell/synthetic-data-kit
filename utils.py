@@ -7,9 +7,9 @@ def load_prompts(config_path):
     with open(config_path, 'r') as f:
         data = yaml.safe_load(f)
     return (
-        data['prompts']['system_prompt_one_table'],
-        data['prompts']['q_generation_one_table'],
-        data['prompts']['code_generation_one_table']
+        data['prompts']['system_prompt_reasoning'],
+        data['prompts']['q_generation_5T1Q'],
+        data['prompts']['reasoning_generation']
     )
 
 

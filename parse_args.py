@@ -10,7 +10,7 @@ def parse_args():
         help='"code" for code gen or "question" for question gen'
     )
     parser.add_argument(
-        '--config', default='configs/config_ey.yaml',
+        '--config', default='configs/config.yaml',
         help='Path to YAML configuration file.'
     )
     parser.add_argument(
